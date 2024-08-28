@@ -1,0 +1,11 @@
+Organism	GenomeID	InsectBaseID	NCBI_TaxonomyID	Order	Family	Description Status
+Acromyrmex_echinatior	GCF_000204515.1	IBG_00005	103372	Hymenoptera	Formicidae	Leucyl-tRNA_synthetase	prot_in
+Apis_laboriosa	GCF_014066325.1	IBG_00082	183418	Hymenoptera	Apidae	zinc transporter ZIP9	prot_in
+Coccinella_septempunctata	GCF_907165205.1	IBG_00194	Coleoptera	Coccinellidae	arginine kinase isoform X1	prot_in
+Anopheles_funestus	NA	IBG_00049	62324	Diptera	Culicidae	Protein_fem-1_homolog_CG6966_OS=Drosophila_melanogaster_OX=7227_GN=CG6966_PE=2_SV=2	sp_in
+Bombus_hortorum	GCA_905332935.1	IBG_00126	85660	Hymenoptera Apidae	Cystathionine_beta-synthase_OS=Macaca_fascicularis_OX=9541_GN=CBS_PE=2_SV=3	gs_in
+Myzus_persicae	NA	IBG_00561	13164	Hemiptera	Aphidae	Protein_daughter_of_sevenless_OS=Drosophila_melanogaster_OX=7227_GN=dos_PE=1SV=1	sp_in
+Blattella_germanica	GCA_003018175.1	IBG_00115	6973	Blattodea	Ectobiidae	Cartilage_oligomeric_matrix_protein_OS=Homo_sapiens_OX=9606_GN=COMP_PE=1_SV=2	not_close
+Ricinus_acunatus	GCA_027475445.1	IBG_01147	2897411	Phthiraptera	Ricinidae	unknown_g17802.t1	or_in
+Thelaira_solivaga	GCA_947397855.1	IBG_01161	1918187	Diptera	Tachinidae	unknown_g10001.t1	or_in
+Rhynchophorus_ferrugineus	GCA_014462685.1	IBG_00688	354439	Coleoptera	Curculionidae	Protein_transport_protein_Sec16A_OS=Homo_sapiens_OX=9606_GN=SEC16A_PE=1_SV=4	or_in
