@@ -1,3 +1,14 @@
+'''
+#################
+# inprotfind.py #
+#################
+
+- author: Carmelo Gómez-Martínez
+- github: https://github.com/carmelogzmz
+- email: carmelogzmz@gmail.com
+
+This script manage all the functions available in the library. 
+'''
 
 # external libraries
 import pandas as pd
@@ -20,72 +31,11 @@ import tarfile
 # resetting colorama
 init(autoreset=True)
 
-#############
-# FUNCTIONS #
-#############
 
-'''
-# verification function
-#######################
+##################
+# MAIN FUNCTIONS #
+##################
 
-This group of functions checks if the needed external software (mmseqs2, mafft
-and fasttree) is installed in the working environment. If not, it will ask the
-user to install it.
-'''
-
-# It checks if mmseqs2 is installed
-def verifying_mmseqs2():
-    try:
-        subprocess.run(["mmseqs"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-    except subprocess.CalledProcessError as e:
-        print("Error verifying mmseqs2:", e)
-    except FileNotFoundError:
-        raise EnvironmentError("MMseqs2 is not installed or is not in the PATH. Please, install it before using the 'inprotfind' library")
-
-# It checks if mafft is installed
-def verifying_mafft():
-    try:
-        subprocess.run(["mafft", "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-    except subprocess.CalledProcessError as e:
-        print("Error verifying MAFFT:", e)
-    except FileNotFoundError:
-        raise EnvironmentError("MAFFT is not installed or is not in the PATH. Please, install it before using 'inprotfind.build_tree' function")
-        
-# It checks if fasttree is installed
-def verifying_fasttree():
-    try:
-        subprocess.run(["FastTree", "-help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-    except subprocess.CalledProcessError as e:
-        print("Error verifying FastTree:", e)
-    except FileNotFoundError:
-        raise EnvironmentError("FastTree is not installed or is not in the PATH. Please, install it before using 'inprotfind.build_tree' function")
-   
-'''
-# example results function
-##########################
-'''
-
-def show_example_result(example):
-    example = int(example)
-    if example > 0 and example <= 10:
-        result = pkg_resources.files("inprotfind").joinpath("query_examples/protein_names.txt")
-        df = pd.read_csv(result, sep=';', header=0)
-        if example > 0 and example < 10:
-            fila_deseada = df[df['example'] == f'query_example0{example}']
-        elif example == 10:
-            fila_deseada = df[df['example'] == f'query_example{example}']
-        
-        # Imprimir la cabecera y la fila deseada de forma tabulada
-        if not fila_deseada.empty:
-            print(pd.concat([df.head(0), fila_deseada]).to_string(index=False))
-        else:
-            print(Fore.RED + Style.BRIGHT + "Examples are numered from 1 to 10. Please, select a number in this range")
-    else:
-        print(Fore.RED + Style.BRIGHT + "Examples are numered from 1 to 10. Please, select a number in this range")
-        print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
-        return   
-    
-    
 '''
 # get_database
 ##############
@@ -93,14 +43,17 @@ def show_example_result(example):
 This function download and install the database arthropods_OrthoDB in the 
 location of the library inprotfind in the current environment. In case an
 installed database is corrupted or malfunction, it is possible to reinstall
-it using this function
+it using this function. The argument fm_calling is just for communication
+between functions and does not need to be changed by the user.
 '''
 
 def get_database(fm_calling = False):
-        
+    
+    # setting directories
     mmseqs_targetdir = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB")
     mmseqs_target_metadata = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB_metadata.parquet")
 
+    # checking the status of the database in the environment
     if fm_calling == False:
         if not os.path.exists(mmseqs_targetdir) and not os.path.exists(mmseqs_target_metadata):
             install = True
@@ -140,11 +93,12 @@ def get_database(fm_calling = False):
             install = False
             return
         
+    # Installing the database
     if install == True:
-        
         if not os.path.exists(pkg_resources.files("inprotfind").joinpath("databases")):
             os.mkdir(str(pkg_resources.files("inprotfind").joinpath("databases")))
 
+        # finding the database in zenodo.org
         save_path = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB.tar.gz")
         extract_path = pkg_resources.files("inprotfind").joinpath("databases")
         doi = "https://zenodo.org/records/13386908/files/arthropodsDB.tar.gz?download=1"
@@ -153,8 +107,7 @@ def get_database(fm_calling = False):
         total_size = int(response.headers.get('content-length', 0))  # Tamaño total del archivo
         block_size = 8192  # Tamaño del bloque a leer cada vez
     
-        # Configurar tqdm para mostrar la barra de progreso
-        #progress_bar = tqdm(total=total_size, unit='iB', unit_scale=True)
+        # downloading
         print(Fore.GREEN + Style.BRIGHT + "Downloading database...")
         with tqdm(total=total_size, unit='iB', unit_scale=True, leave=False) as progress_bar:
             with open(save_path, 'wb') as file:
@@ -170,23 +123,22 @@ def get_database(fm_calling = False):
             return
         else:
             print(Fore.GREEN + Style.BRIGHT + "The database was downloaded successfuly")
-                
+             
+        # installing
         if not os.path.exists(extract_path):
             os.makedirs(extract_path)  # Crear el directorio si no existe
-    
         try:
             print(Fore.GREEN + Style.BRIGHT + "Installing database...")
             with tarfile.open(save_path, "r:gz") as tar:
-                # Obtener el nombre de la carpeta raíz dentro del tar.gz
                 root_dir = os.path.commonpath([member.name for member in tar.getmembers()])
                 
                 for member in tar.getmembers():
-                    # Quitar la carpeta raíz del nombre del miembro
                     member.name = os.path.relpath(member.name, root_dir)
                     tar.extract(member, path=extract_path)
             
-            # Eliminar el archivo tar.gz después de descomprimir
+            # removing downloaded file to save disk space
             os.remove(save_path)
+            save_path = pkg_resources.files("inprotfind").joinpath("databases")
             print(Fore.GREEN + Style.BRIGHT + f"Database have been installed in the inprotfind library (Path: {save_path})")
 
         except Exception as e:
@@ -194,8 +146,6 @@ def get_database(fm_calling = False):
             print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
             return
 
-###############################################################################
-###############################################################################
 
 '''
 # find_matches
@@ -214,8 +164,9 @@ and install it.
 def find_matches(job_name, query_path):
         
     start_time = time.time()
-    verifying_mmseqs2()
-            
+    verifying_mmseqs2() # verifies if mmseqs2 is installed
+    
+    # managing the database
     db_name = "arthropods_OrthoDB"
     
     mmseqs_targetdir = pkg_resources.files("inprotfind").joinpath(f"databases/{db_name}")
@@ -228,12 +179,13 @@ def find_matches(job_name, query_path):
         print("The metadata file for the default database (arthropods_OrthoDB) is not yet installed or is corrupted. The database will be downloaded and installed now.")
         get_database(True)
           
-    # Crear carpetas temporales para MMseqs2
+    # setting directory's names for file storage
     mmseqs_workdir = job_name
     mmseqs_querydir = mmseqs_workdir + "/queryDB"
     mmseqs_resultdir = mmseqs_workdir + "/resultDB"
     mmseqs_tmp = mmseqs_workdir + "/tmp"
     
+    # checks if query_path contains any of the example's names and pass it the correct path
     if(query_path == "example1"):
         query_path = pkg_resources.files("inprotfind").joinpath("query_examples/query_example01.fa")
     elif(query_path == "example2"):
@@ -255,7 +207,7 @@ def find_matches(job_name, query_path):
     elif(query_path == "example10"):
         query_path = pkg_resources.files("inprotfind").joinpath("query_examples/query_example10.fa")
     
-    # Verificar si el directorio existe y es un directorio
+    # checks if the directory with the job_name exists or not to create it
     if os.path.isdir(mmseqs_workdir):
         answer = input(Fore.RED + Style.BRIGHT + f"There is already a job folder named '{mmseqs_workdir}' in this directory. Do you want to replace it? ALL THE CURRENT FILES in the job folder will be ERASED (yes/no): ")
         if answer == "yes" or answer == "y":
@@ -266,6 +218,7 @@ def find_matches(job_name, query_path):
             print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
             return
     
+    # create the rest of directories
     if not os.path.isdir(mmseqs_workdir):
         os.mkdir(mmseqs_workdir)
     if not os.path.isdir(mmseqs_querydir):
@@ -277,46 +230,52 @@ def find_matches(job_name, query_path):
     if not os.path.isdir(mmseqs_tmp):
         os.mkdir(mmseqs_tmp)
     
+    # building the mmseqs2 query database
     print(Fore.GREEN + Style.BRIGHT + "Converting query to mmseqs2 format...")
     # Crear la base de datos MMseqs2
     subprocess.run(f"mmseqs createdb {query_path} {mmseqs_querydir}/queryDB", shell=True)
 
-    # Ejecutar la búsqueda MMseqs2
+    # executing mmseqs2 search in the database
     subprocess.run(f"mmseqs search {mmseqs_querydir}/queryDB {mmseqs_targetdir}/{db_name}DB {mmseqs_resultdir}/resultDB {mmseqs_tmp} --max-seqs 100", shell=True)
-    end_time = time.time()
 
     
     print(Fore.GREEN + Style.BRIGHT + "Passing results to table and adding metadata...")
-    # Convertir los resultados al formato tabular
+    # transforming results to tabular format
     subprocess.run(f"mmseqs convertalis {mmseqs_querydir}/queryDB {mmseqs_targetdir}/{db_name}DB {mmseqs_resultdir}/resultDB {mmseqs_tmp}/best_matches_tmp.m8", shell=True)
 
+    # reading the metadata of the database and the results
     meta_df = pd.read_parquet(str(metadata_targetdir))
     best_matches_df_all = pd.read_csv(f"{mmseqs_tmp}/best_matches_tmp.m8", sep="\t", header=None)
     
-    # Crear diccionarios para cada columna de interés
+    # adding the metadata to the result file
     code_to_organism = meta_df.set_index('PubProtID')['Organism'].to_dict()
     code_to_genomeid = meta_df.set_index('PubProtID')['GenomeID'].to_dict()
     code_to_pubgeneid = meta_df.set_index('PubProtID')['PubGeneID'].to_dict()
     code_to_description = meta_df.set_index('PubProtID')['Description'].to_dict()
 
-    # Mapear cada una de las nuevas columnas a best_matches_df_all
     best_matches_df_all['Organism'] = best_matches_df_all[1].map(code_to_organism)
     best_matches_df_all['GenomeID'] = best_matches_df_all[1].map(code_to_genomeid)
     best_matches_df_all['PubGeneID'] = best_matches_df_all[1].map(code_to_pubgeneid)
     best_matches_df_all['Description'] = best_matches_df_all[1].map(code_to_description)
+    
+    # changing blank spaces for underscore
     best_matches_df_all['Organism'] = best_matches_df_all['Organism'].str.replace(' ', '_')
     best_matches_df_all['Description'] = best_matches_df_all['Description'].str.replace(' ', '_')
     
+    # adding header to result file
     header = ["qseqid", "tseqid","pident", "length", "mismatch", "gapopen", "qstart", "qend", "tstart", "tend", "evalue", "bitscore", "organism", "genomeid", "geneid", "description"]
     best_matches_df_all.columns = header
     
+    # saving result file as best_matches_all.m8 and best_matches.m8
     best_matches_df_all.to_csv(f"{mmseqs_workdir}/best_matches_all.m8", sep="\t", index=False, header=True)
     best_matches_df = best_matches_df_all[:30]
     best_matches_df.to_csv(f"{mmseqs_workdir}/best_matches.m8", sep="\t", index=False, header=True)
+    
+    # saving database_name to a file (not longer necessary)
     with open(f"{mmseqs_workdir}/db_name.txt", "w") as file:
         file.write(db_name)
     
-    # Limpiar archivos temporales de MMseqs2
+    # cleaning temporal files
     if os.path.exists(mmseqs_tmp):
         shutil.rmtree(mmseqs_tmp)
         print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} removed.")
@@ -325,29 +284,26 @@ def find_matches(job_name, query_path):
     
     end_time = time.time()     
     
-    # Abriendo el archivo en modo de adición ('a' de append)
+    # saving processing time in a file, just if want to have a log of it
     with open("processing_time.txt", 'a') as archivo:
-        # Añadiendo las líneas adicionales
         archivo.writelines(f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds.\n")
 
+    # DONE
     print(Back.GREEN + Fore.BLACK + f"Done! You can find all the matches in '{mmseqs_workdir}/best_matches_all.m8', and just the first 30 in '{mmseqs_workdir}/best_matches.m8'")
     print(Fore.GREEN + Style.BRIGHT + f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds")
-        
-###############################################################################
-###############################################################################
+
 
 '''
 # align_sequences
 #################
 
-Esta función utiliza el archivo best_matches.m8 conseguido con la función
-anterior para conseguir las secuencias de aminoácidos de las proteínas
-incluidas en esta tabla y añade la secuencia de aminoácidos de la secuencia
-problema. Lo guarda en un archivo llamado filtered_sequences.fasta. Después,
-realiza el alineamiento de las secuencias mediante Mafft y lo guarda en un 
-archivo llamado aligned_sequences.fasta. La función trabaja con los datos que
-encuentre en la carpeta del trabajo elegido (job_name). Requiere que la base
-de datos con la que se creó el trabajo siga existiendo.
+This function uses the best_matches.m8 file obtained with the previous function
+to retrieve the amino acid sequences of the proteins included in this table 
+and adds the amino acid sequence of the query sequence. It saves it in a file 
+called filtered_sequences.fasta. Then, it aligns the sequences using Mafft and
+saves the result in a file called aligned_sequences.fasta. The function works
+with the data found in the folder of the selected job (job_name). It requires 
+that the database used to create the job still exists.
 '''
 
 def align_sequences(job_name):
@@ -355,7 +311,7 @@ def align_sequences(job_name):
     verifying_mmseqs2()
     verifying_mafft()
                 
-    # Crear carpetas temporales para MMseqs2
+    # managing directories
     mmseqs_workdir = job_name
     
     with open(f"{mmseqs_workdir}/db_name.txt", "r") as file:
@@ -378,50 +334,56 @@ def align_sequences(job_name):
     mmseqs_filtereddir = mmseqs_workdir + "/filteredDB"
     mmseqs_tmp = mmseqs_workdir + "/tmp"
     
+    # Verifying if the database exists
     if not os.path.exists(f"{mmseqs_targetdir}/{db_name}DB"):
         print(Fore.RED + Style.BRIGHT + f"The database '{db_name}' was used for this job, but now does not exist or it has been renamed/moved/removed/corrupted. It will be necessary to fix it or to create it again. Yo may use the 'create_targetDB' function to create it. Make sure you use the same name ({db_name}) and the same fasta file used the first time.")
         print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
         return
         
-    # Verificar si el directorio existe y es un directorio
+    # Verifying if the directory exists
     if not os.path.isdir(mmseqs_workdir):
         print(Fore.RED + Style.BRIGHT + f"The job folder named {mmseqs_workdir} does not exist. Please, choose an existing job folder or run first the 'find_matches' function.")
         print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
         return
     
+    # creating directories
     if not os.path.isdir(mmseqs_filtereddir):
         os.mkdir(mmseqs_filtereddir)
     if not os.path.isdir(mmseqs_tmp):
         os.mkdir(mmseqs_tmp)
-       
+     
+    # starting the aligning
     print(Fore.GREEN + Style.BRIGHT + "Collecting sequences of the best matches...")
-    # Carga del archivo best_matches.m8 (producido con la función "find_matches")
+    
+    # reading best_matches.m8
     result_file = f"{mmseqs_workdir}/best_matches.m8"
-    # Leer identificadores de secuencias desde el archivo MMseqs2
+    
+    # reading sequences accession codes
     df = pd.read_csv(result_file, sep='\t', skiprows=1, header=None)
     sequence_ids = set(df[1].str.strip())
     
-    # Guarda los ids de las secuencias en best_matches.m8
+    # saving the ids of the sequences in a temporal file
     sequence_ids = pd.DataFrame(sequence_ids)
     sequence_ids.to_csv(f"{mmseqs_tmp}/sequence_ids.txt", sep="\t", index=False, header=False)
     
-    # Filtrar la base de datos utilizando la lista de sequence_ids_temp.txt
+    # Filtering the database using the list of ids saved previouly
     subprocess.run(f"mmseqs createsubdb {mmseqs_tmp}/sequence_ids.txt {mmseqs_targetdir}/{db_name}DB {mmseqs_filtereddir}/filteredDB --id-mode 1", shell=True)
     
-    # Convertir la sub-base de datos filtrada a formato FASTA
+    # Transforming the filtered database to FASTA
     subprocess.run(f"mmseqs convert2fasta {mmseqs_filtereddir}/filteredDB {mmseqs_tmp}/filtered_sequences_tmp.fasta", shell=True)
     
-    # Convertir la sub-base de datos filtrada a formato FASTA
+    # Transforming the query database to FASTA
     subprocess.run(f"mmseqs convert2fasta {mmseqs_querydir}/queryDB {mmseqs_tmp}/query.fasta", shell=True)
     
-    # Leer la secuencia problema
+    # Reading query sequence
     query_seq = list(SeqIO.parse(f"{mmseqs_tmp}/query.fasta", "fasta"))[0]
 
-    # Escribir la secuencia problema junto con las secuencias similares
+    # adding the query sequence to the filtered sequences
     with open(f"{mmseqs_tmp}/filtered_sequences_tmp.fasta", "r") as infile, open(f"{mmseqs_workdir}/filtered_sequences.fasta", "w") as outfile:
-        SeqIO.write(query_seq, outfile, "fasta")  # Escribir primero la secuencia problema
-        outfile.write(infile.read())  # Luego escribir el resto de las secuencias
+        SeqIO.write(query_seq, outfile, "fasta")  # add first the query sequence
+        outfile.write(infile.read())  # then the filtered sequences
         
+    # aligning
     print(Fore.GREEN + Style.BRIGHT + "Sequences aligning...")
     start_time = time.time()
     subprocess.run(f"mafft --auto {mmseqs_workdir}/filtered_sequences.fasta > {mmseqs_workdir}/aligned_sequences.fasta", shell=True)
@@ -429,46 +391,45 @@ def align_sequences(job_name):
     end_time = time.time()
     print(Fore.GREEN + Style.BRIGHT + f"Alignment with MAFFT completed in {end_time - start_time:.2f} seconds.")
     
-    # Limpiar archivos temporales de MMseqs2
+    # removing temporal files
     if os.path.exists(mmseqs_tmp):
         shutil.rmtree(mmseqs_tmp)
         print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} removed.")
     else:
         print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} does not exist or has already been removed.")
     
+    # DONE
     print(Back.GREEN + Fore.BLACK + f"Done! You can find the filtered sequences in '{mmseqs_workdir}/filtered_sequences.fasta', and the alignment results in '{mmseqs_workdir}/aligned_sequences.fasta'")
-    
-
-###############################################################################
-###############################################################################
+  
 
 '''
 # build_tree
 ############
 
-Esta función utiliza el archivo align_sequences.fasta para crear el árbol
-filogenético donde situa la secuencia problema junto con las 30 secuancias más
-similares. Crea un archivo llamado tree.nwk y dibuja un árbol. Se puede decidir
-si dibujar el árbol de forma sencilla (por defecto) o la forma interactiva
-con la librería "ete3"
+This function uses the align_sequences.fasta file to create a phylogenetic 
+tree, placing the query sequence alongside the 30 most similar sequences. It 
+creates a file called tree.nwk and draws a tree. You can choose to draw the 
+tree in a simple way (default) or interactively using the "ete3" library.
 '''
 
 def build_tree(job_name, tree_type = 'simple'):
     
     verifying_fasttree()
     
-    # Crear carpetas temporales para MMseqs2
+    # Managing directories
     mmseqs_workdir = job_name
     
-    # Verificar si el directorio existe y es un directorio
+    # Verifying if the directory exists
     if not os.path.isdir(mmseqs_workdir):
         print(Fore.RED + Style.BRIGHT + f"The job folder named {mmseqs_workdir} does not exist. Please, choose an existing job folder or run first the 'find_matches' function.")
         print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
         return
-        
+    
+    # Creating tree.nwk with FastTree
     subprocess.run(f"FastTree -nt {mmseqs_workdir}/aligned_sequences.fasta > {mmseqs_workdir}/tree.nwk", shell=True)
     print(Fore.GREEN + Style.BRIGHT + f"Tree saved in {mmseqs_workdir}/tree.nwk")
     
+    # Drawing simple tree
     if(tree_type == 'simple'):
         print(Fore.GREEN + Style.BRIGHT + "Default style tree drawn.")
         tree = Phylo.read(f"{mmseqs_workdir}/tree.nwk", "newick")
@@ -477,14 +438,15 @@ def build_tree(job_name, tree_type = 'simple'):
         Phylo.draw(tree, do_show=True, show_confidence=True, axes=plt.gca())
         ax = fig.gca()
         ax.set_axis_off()
+        print(Back.GREEN + Fore.BLACK + "Done! You can find the tree drawn in the Plots tab or in a pop-up window")
     
+    # Drawing interactive tree
     if(tree_type == "interactive"):
-        print(Fore.GREEN + Style.BRIGHT + "Interactive tree drawn.")
-        # ARBOL CON ETE3        
-        # Cargar el árbol
+        print(Fore.GREEN + Style.BRIGHT + "Interactive tree drawn.")     
+        # reading the tree
         t = Tree(f"{mmseqs_workdir}/tree.nwk")
         
-        # Definir el estilo del árbol
+        # defining tree style
         ts = TreeStyle()
         ts.show_leaf_name = True
         ts.mode = "c"
@@ -492,68 +454,112 @@ def build_tree(job_name, tree_type = 'simple'):
         ts.arc_span = 180
         
         print(Back.GREEN + Fore.BLACK + "Done! You can find the interactive tree drawn in a pop-up window")
-        # Mostrar el árbol
+        # plot tree
         t.show(tree_style=ts)
-    
-    if(tree_type == "plt"):
-        
-        # Leer el árbol
-        tree = Phylo.read(f"{mmseqs_workdir}/tree.nwk", "newick")
-        
-        # Crear una figura y un eje
-        fig, ax = plt.subplots(figsize=(10, 10))
-        
-        # Dibujar el árbol en el eje
-        Phylo.draw(tree, do_show=False, axes=ax)
-        
-        # Personalizar las ramas, etiquetas, etc.
-        for clade in tree.find_clades():
-            if clade.is_terminal():
-                # Personalizar las etiquetas de los terminales
-                label = clade.name
-                ax.text(clade.branch_length, 0, label, va='center', ha='right', fontsize=12)
-        
-        # Eliminar los ejes
-        ax.set_axis_off()
-        
-        print(Back.GREEN + Fore.BLACK + "Done! You can find the tree drawn in the Plots tab or in a pop-up window")
-        # Mostrar la figura
-        plt.show()
-    
-        
-###############################################################################
-###############################################################################
+
+
+############################
+#  COMPLEMENTARY FUNCTIONS #
+############################
 
 '''
-# Code to run the functions from terminal
-############
+# verification functions
+########################
 
-To run the functions, the command inprotfind before the function name is needed
+This group of functions checks if the needed external software (mmseqs2, mafft
+and fasttree) is installed in the working environment. If not, it will ask the
+user to install it.
+'''
 
+# It checks if mmseqs2 is installed
+def verifying_mmseqs2():
+    try:
+        subprocess.run(["mmseqs"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError as e:
+        print("Error verifying mmseqs2:", e)
+    except FileNotFoundError:
+        raise EnvironmentError("MMseqs2 is not installed or is not in the PATH. Please, install it before using the 'inprotfind' library")
+
+# It checks if mafft is installed
+def verifying_mafft():
+    try:
+        subprocess.run(["mafft", "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError as e:
+        print("Error verifying MAFFT:", e)
+    except FileNotFoundError:
+        raise EnvironmentError("MAFFT is not installed or is not in the PATH. Please, install it before using 'inprotfind.build_tree' function")
+       
+# It checks if fasttree is installed
+def verifying_fasttree():
+    try:
+        subprocess.run(["FastTree", "-help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except subprocess.CalledProcessError as e:
+        print("Error verifying FastTree:", e)
+    except FileNotFoundError:
+        raise EnvironmentError("FastTree is not installed or is not in the PATH. Please, install it before using 'inprotfind.build_tree' function")
+
+
+'''
+# example results function
+##########################
+
+This function allow to check the metadata of any of the query examples included
+in the library. It just need the number of the example (1 to 10).
+'''
+
+def show_example_result(example):
+    example = int(example)
+    if example > 0 and example <= 10:
+        result = pkg_resources.files("inprotfind").joinpath("query_examples/protein_names.txt")
+        df = pd.read_csv(result, sep=';', header=0)
+        if example > 0 and example < 10:
+            fila_deseada = df[df['example'] == f'query_example0{example}']
+        elif example == 10:
+            fila_deseada = df[df['example'] == f'query_example{example}']
+        
+        # print the header and the desired row
+        if not fila_deseada.empty:
+            print(pd.concat([df.head(0), fila_deseada]).to_string(index=False))
+        else:
+            print(Fore.RED + Style.BRIGHT + "Examples are numered from 1 to 10. Please, select a number in this range")
+    else:
+        print(Fore.RED + Style.BRIGHT + "Examples are numered from 1 to 10. Please, select a number in this range")
+        print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
+        return   
+   
+
+###########################################
+# RUNNING THE FUNCTIONS FROM THE TERMINAL #
+###########################################
+
+'''
+To run the functions, the command inprotfind before the function name is needed.
 For example, to run the find_matches function:
     
-    inprotfind find_matches --job_name test01 --query_path queries/sequences01.fa
+  inprotfind find_matches --job_name test01 --query_path queries/sequences01.fa
 '''
 
 def main_function():
     parser = argparse.ArgumentParser(description='Procesamiento de secuencias proteicas')
     
-    # Subparsers para los comandos
+    # Subparsers for commands
     subparsers = parser.add_subparsers(dest='command', help='Comandos disponibles')
     
+    # Subparser for get_database
     parser_get_database = subparsers.add_parser('get_database', help="To download and install the target database")
     parser_get_database.add_argument("--fm_calling", type=bool, default=False, help="Controls if the function is call it from find_matches or not")
-    # Subparser para find_matches
+    
+    # Subparser for find_matches
     parser_find_matches = subparsers.add_parser('find_matches', help='To find coincidences in the database')
     parser_find_matches.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for find_matches")
     parser_find_matches.add_argument("--query_path", type=str, required=True, help="Path to query file for find_matches")
 
-    # Subparser para align_sequences
+    # Subparser for align_sequences
     parser_align_sequences = subparsers.add_parser('align_sequences', help='To align sequences')
     parser_align_sequences.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for align_sequences")
 
-    # Subparser para build_tree
-    parser_build_tree = subparsers.add_parser('build_tree', help='Construir un árbol filogenético')
+    # Subparser for build_tree
+    parser_build_tree = subparsers.add_parser('build_tree', help='To build the phylogenetic tree')
     parser_build_tree.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for build_tree")
     parser_build_tree.add_argument("--tree_type", type=str, default=None, help="Tree type for build_tree. It may be 'simple' (default) or 'interactive'")
 
@@ -572,4 +578,7 @@ def main_function():
 
 if __name__ == "__main__":
     main_function()
-    
+
+'''
+END OF THE SCRIPT
+'''
