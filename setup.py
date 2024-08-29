@@ -29,6 +29,7 @@ setup(
         'fastparquet',
         'requests',
         'tqdm',
+        'ete3',
         # Añade aquí cualquier otra dependencia externa que tu código requiera
     ],
     entry_points={

@@ -6,6 +6,7 @@ from colorama import Fore, Back, Style, init
 from Bio import SeqIO, Phylo
 import requests
 from tqdm import tqdm
+from ete3 import Tree, TreeStyle
 
 # interanal libraries
 import os
@@ -95,34 +96,55 @@ installed database is corrupted or malfunction, it is possible to reinstall
 it using this function
 '''
 
-def get_database():
+def get_database(fm_calling = False):
         
     mmseqs_targetdir = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB")
-    if not os.path.exists(mmseqs_targetdir):
-        install = True
-        if not os.path.exists(pkg_resources.files("inprotfind").joinpath("databases")):
-            os.mkdir(str(pkg_resources.files("inprotfind").joinpath("databases")))
-    else:
-        value = input(Fore.RED + Style.BRIGHT + f"The database is already installed in your computer in {mmseqs_targetdir}. Do you want to reinstall it? (yes/no): ")
-            
-        if value == "yes" or value == "y" or value == "YES" or value == "Y":
-            mmseqs_target_metadata = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB_metadata.parquet")
-            try:
-                shutil.rmtree(mmseqs_targetdir)
-                os.remove(mmseqs_target_metadata)
-                print(Fore.GREEN + Style.BRIGHT + "Previous database removed")
-                install = True
-            except:
-                print("Error removing previous database")
-                print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
-                install = False
-                return
+    mmseqs_target_metadata = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB_metadata.parquet")
+
+    if fm_calling == False:
+        if not os.path.exists(mmseqs_targetdir) and not os.path.exists(mmseqs_target_metadata):
+            install = True
+            if not os.path.exists(pkg_resources.files("inprotfind").joinpath("databases")):
+                os.mkdir(str(pkg_resources.files("inprotfind").joinpath("databases")))
         else:
+            value = input(Fore.RED + Style.BRIGHT + f"A version of the database is already installed in your computer in {mmseqs_targetdir}. Do you want to reinstall it? (yes/no): ")
+                
+            if value == "yes" or value == "y" or value == "YES" or value == "Y":
+                mmseqs_target_metadata = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB_metadata.parquet")
+                try:
+                    if os.path.exists(mmseqs_targetdir):
+                        shutil.rmtree(mmseqs_targetdir)
+                    if os.path.exists(mmseqs_target_metadata):
+                        os.remove(mmseqs_target_metadata)
+                    print(Fore.GREEN + Style.BRIGHT + "Previous database removed")
+                    install = True
+                except:
+                    print("Error removing previous database")
+                    print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
+                    install = False
+                    return
+            else:
+                print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
+                return
+    else:
+        try:
+            if os.path.exists(mmseqs_targetdir):
+                shutil.rmtree(mmseqs_targetdir)
+            if os.path.exists(mmseqs_target_metadata):
+                os.remove(mmseqs_target_metadata)
+            print(Fore.GREEN + Style.BRIGHT + "Previous database removed")
+            install = True
+        except:
+            print("Error removing previous database")
             print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
+            install = False
             return
         
     if install == True:
         
+        if not os.path.exists(pkg_resources.files("inprotfind").joinpath("databases")):
+            os.mkdir(str(pkg_resources.files("inprotfind").joinpath("databases")))
+
         save_path = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB.tar.gz")
         extract_path = pkg_resources.files("inprotfind").joinpath("databases")
         doi = "https://zenodo.org/records/13386908/files/arthropodsDB.tar.gz?download=1"
@@ -201,10 +223,10 @@ def find_matches(job_name, query_path):
 
     if not os.path.exists(mmseqs_targetdir):
         print("The default database (arthropods_OrthoDB) is not yet installed or is corrupted. The database will be downloaded and installed now.")
-        get_database()
+        get_database(True)
     elif not os.path.exists(metadata_targetdir):
         print("The metadata file for the default database (arthropods_OrthoDB) is not yet installed or is corrupted. The database will be downloaded and installed now.")
-        get_database()
+        get_database(True)
           
     # Crear carpetas temporales para MMseqs2
     mmseqs_workdir = job_name
@@ -282,11 +304,15 @@ def find_matches(job_name, query_path):
     best_matches_df_all['GenomeID'] = best_matches_df_all[1].map(code_to_genomeid)
     best_matches_df_all['PubGeneID'] = best_matches_df_all[1].map(code_to_pubgeneid)
     best_matches_df_all['Description'] = best_matches_df_all[1].map(code_to_description)
-    best_matches_df_all = pd.DataFrame(best_matches_df_all)
+    best_matches_df_all['Organism'] = best_matches_df_all['Organism'].str.replace(' ', '_')
+    best_matches_df_all['Description'] = best_matches_df_all['Description'].str.replace(' ', '_')
     
-    best_matches_df_all.to_csv(f"{mmseqs_workdir}/best_matches_all.m8", sep="\t", index=False, header=False)
+    header = ["qseqid", "tseqid","pident", "length", "mismatch", "gapopen", "qstart", "qend", "tstart", "tend", "evalue", "bitscore", "organism", "genomeid", "geneid", "description"]
+    best_matches_df_all.columns = header
+    
+    best_matches_df_all.to_csv(f"{mmseqs_workdir}/best_matches_all.m8", sep="\t", index=False, header=True)
     best_matches_df = best_matches_df_all[:30]
-    best_matches_df.to_csv(f"{mmseqs_workdir}/best_matches.m8", sep="\t", index=False, header=False)
+    best_matches_df.to_csv(f"{mmseqs_workdir}/best_matches.m8", sep="\t", index=False, header=True)
     with open(f"{mmseqs_workdir}/db_name.txt", "w") as file:
         file.write(db_name)
     
@@ -372,11 +398,8 @@ def align_sequences(job_name):
     # Carga del archivo best_matches.m8 (producido con la función "find_matches")
     result_file = f"{mmseqs_workdir}/best_matches.m8"
     # Leer identificadores de secuencias desde el archivo MMseqs2
-    sequence_ids = set()
-    with open(result_file) as f:
-        for line in f:
-            parts = line.split("\t")
-            sequence_ids.add(parts[1].strip())  # Suponiendo que el ID de la secuencia está en la segunda columna
+    df = pd.read_csv(result_file, sep='\t', skiprows=1, header=None)
+    sequence_ids = set(df[1].str.strip())
     
     # Guarda los ids de las secuencias en best_matches.m8
     sequence_ids = pd.DataFrame(sequence_ids)
@@ -457,9 +480,7 @@ def build_tree(job_name, tree_type = 'simple'):
     
     if(tree_type == "interactive"):
         print(Fore.GREEN + Style.BRIGHT + "Interactive tree drawn.")
-        # ARBOL CON ETE3
-        from ete3 import Tree, TreeStyle
-        
+        # ARBOL CON ETE3        
         # Cargar el árbol
         t = Tree(f"{mmseqs_workdir}/tree.nwk")
         
@@ -520,8 +541,8 @@ def main_function():
     # Subparsers para los comandos
     subparsers = parser.add_subparsers(dest='command', help='Comandos disponibles')
     
-
     parser_get_database = subparsers.add_parser('get_database', help="To download and install the target database")
+    parser_get_database.add_argument("--fm_calling", type=bool, default=False, help="Controls if the function is call it from find_matches or not")
     # Subparser para find_matches
     parser_find_matches = subparsers.add_parser('find_matches', help='To find coincidences in the database')
     parser_find_matches.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for find_matches")
@@ -539,7 +560,7 @@ def main_function():
     args = parser.parse_args()
 
     if args.command == "get_database":
-        get_database()
+        get_database(args.fm_calling)
     elif args.command == "find_matches":
         find_matches(args.job_name, args.query_path)
     elif args.command == "align_sequences":
