@@ -248,22 +248,20 @@ def find_matches(job_name, query_path):
     best_matches_df_all = pd.read_csv(f"{mmseqs_tmp}/best_matches_tmp.m8", sep="\t", header=None)
     
     # adding the metadata to the result file
-    code_to_organism = meta_df.set_index('PubProtID')['Organism'].to_dict()
-    code_to_genomeid = meta_df.set_index('PubProtID')['GenomeID'].to_dict()
-    code_to_pubgeneid = meta_df.set_index('PubProtID')['PubGeneID'].to_dict()
-    code_to_description = meta_df.set_index('PubProtID')['Description'].to_dict()
+    code_to_organism = meta_df.set_index('ID')['Organism'].to_dict()
+    code_to_genomeid = meta_df.set_index('ID')['GenomeID'].to_dict()
+    code_to_pubprotid = meta_df.set_index('ID')['PubProtID'].to_dict()
+    code_to_pubgeneid = meta_df.set_index('ID')['PubGeneID'].to_dict()
+    code_to_description = meta_df.set_index('ID')['Description'].to_dict()
 
     best_matches_df_all['Organism'] = best_matches_df_all[1].map(code_to_organism)
     best_matches_df_all['GenomeID'] = best_matches_df_all[1].map(code_to_genomeid)
+    best_matches_df_all['PubProtID'] = best_matches_df_all[1].map(code_to_pubprotid)
     best_matches_df_all['PubGeneID'] = best_matches_df_all[1].map(code_to_pubgeneid)
     best_matches_df_all['Description'] = best_matches_df_all[1].map(code_to_description)
     
-    # changing blank spaces for underscore
-    best_matches_df_all['Organism'] = best_matches_df_all['Organism'].str.replace(' ', '_')
-    best_matches_df_all['Description'] = best_matches_df_all['Description'].str.replace(' ', '_')
-    
     # adding header to result file
-    header = ["qseqid", "tseqid","pident", "length", "mismatch", "gapopen", "qstart", "qend", "tstart", "tend", "evalue", "bitscore", "organism", "genomeid", "geneid", "description"]
+    header = ["qseqid", "tseqid","pident", "length", "mismatch", "gapopen", "qstart", "qend", "tstart", "tend", "evalue", "bitscore", "organism", "genomeid", "proteinid", "geneid", "description"]
     best_matches_df_all.columns = header
     
     # saving result file as best_matches_all.m8 and best_matches.m8

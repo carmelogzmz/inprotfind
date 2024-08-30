@@ -13,14 +13,12 @@ A workflow for insect protein identification and phylogenetic analyses.
 
 - **Cross-Platform**: Supports Linux (AMD and Aarch) and MacOS (Intel and Silicon)
 - **Versatile**: Compatible with Python 3.6 to 3.12
-- **Flexible**: Can be used both within Python scripts and directly from the terminal through shell scripting
-
-
+- **Flexible**: Can be used both within Python scripts and directly from the terminal through shell scripting 
 
 
 ## Prerequisites
 
-**inprotfind** requires _mmseqs2_, _mafft_ and _fasttree_ installed in the same environment to work properly. The three tools are easily installable using [_conda_](https://docs.anaconda.com/miniconda/) and it is the option recommended.
+**inprotfind** requires _mmseqs2_, _mafft_, _fasttree_ and _ete3_ installed in the same environment to work properly. The four tools can be easily installed using [_conda_](https://docs.anaconda.com/miniconda/) and it is the option recommended (especially for _ete3_, as other installing tools (as _pip_) do not install all the required dependencies)
 
 #### [_mmseqs2_](https://github.com/soedinglab/MMseqs2?tab=readme-ov-file)
 
@@ -39,7 +37,10 @@ conda install bioconda::mafft
 ```
 conda install bioconda::fasttree
 ```
-
+#### [_ete3_](http://etetoolkit.org/)
+```
+conda install conda-forge::ete3
+```
 
 ## Installing inprotfind
 
