@@ -370,6 +370,17 @@ def align_sequences(job_name):
     # Transforming the filtered database to FASTA
     subprocess.run(f"mmseqs convert2fasta {mmseqs_filtereddir}/filteredDB {mmseqs_tmp}/filtered_sequences_tmp.fasta", shell=True)
     
+    metadatos = pd.Series(df[14].values, index=df[1]).to_dict()
+    # Leer el archivo FASTA original y crear un nuevo archivo con los IDs reemplazados
+    with open(f'{mmseqs_tmp}/filtered_sequences_tmp.fasta', 'r') as input_fasta, open(f'{mmseqs_tmp}/filtered_sequences_pubprotid.fasta', 'w') as output_fasta:
+        for record in SeqIO.parse(input_fasta, "fasta"):
+            original_id = record.id
+            if original_id in metadatos:
+                # Reemplazar el ID en la cabecera con el PubProtID
+                record.id = metadatos[original_id]
+                record.description = metadatos[original_id]  # Actualizar también la descripción si es necesario
+            SeqIO.write(record, output_fasta, "fasta")
+    
     # Transforming the query database to FASTA
     subprocess.run(f"mmseqs convert2fasta {mmseqs_querydir}/queryDB {mmseqs_tmp}/query.fasta", shell=True)
     
@@ -377,7 +388,7 @@ def align_sequences(job_name):
     query_seq = list(SeqIO.parse(f"{mmseqs_tmp}/query.fasta", "fasta"))[0]
 
     # adding the query sequence to the filtered sequences
-    with open(f"{mmseqs_tmp}/filtered_sequences_tmp.fasta", "r") as infile, open(f"{mmseqs_workdir}/filtered_sequences.fasta", "w") as outfile:
+    with open(f"{mmseqs_tmp}/filtered_sequences_pubprotid.fasta", "r") as infile, open(f"{mmseqs_workdir}/filtered_sequences.fasta", "w") as outfile:
         SeqIO.write(query_seq, outfile, "fasta")  # add first the query sequence
         outfile.write(infile.read())  # then the filtered sequences
         

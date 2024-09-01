@@ -32,8 +32,8 @@ setup(
         # Añade aquí cualquier otra dependencia externa que tu código requiera
     ],
     entry_points={
-    'console_scripts': [
-        'inprotfind=inprotfind.inprotfind:main_function',  # Cambia esto según tu configuración
-    ],
-},
+        'console_scripts': [
+            'inprotfind=inprotfind.inprotfind:main_function',  # Cambia esto según tu configuración
+        ],
+    },
 )

@@ -228,6 +228,7 @@ The file follows a similar tabular BLAST file (`m8`) with few columns more with 
 - bitscore
 - organism
 - genomeid
+- proteinid
 - geneid
 - description
 
