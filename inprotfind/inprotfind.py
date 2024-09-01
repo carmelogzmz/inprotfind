@@ -161,7 +161,7 @@ function is executed and the database is not installed yet, it will download it
 and install it.
 '''
 
-def find_matches(job_name, query_path):
+def find_matches(job_name, query_path, evalue = 0.0000000001, min_seq_id = 0.7):
         
     start_time = time.time()
     verifying_mmseqs2() # verifies if mmseqs2 is installed
@@ -236,59 +236,70 @@ def find_matches(job_name, query_path):
     subprocess.run(f"mmseqs createdb {query_path} {mmseqs_querydir}/queryDB", shell=True)
 
     # executing mmseqs2 search in the database
-    subprocess.run(f"mmseqs search {mmseqs_querydir}/queryDB {mmseqs_targetdir}/{db_name}DB {mmseqs_resultdir}/resultDB {mmseqs_tmp} --max-seqs 100", shell=True)
+    subprocess.run(f"mmseqs search {mmseqs_querydir}/queryDB {mmseqs_targetdir}/{db_name}DB {mmseqs_resultdir}/resultDB {mmseqs_tmp} --max-seqs 100 -e {evalue} --min-seq-id {min_seq_id}", shell=True)
 
     
     print(Fore.GREEN + Style.BRIGHT + "Passing results to table and adding metadata...")
     # transforming results to tabular format
     subprocess.run(f"mmseqs convertalis {mmseqs_querydir}/queryDB {mmseqs_targetdir}/{db_name}DB {mmseqs_resultdir}/resultDB {mmseqs_tmp}/best_matches_tmp.m8", shell=True)
 
-    # reading the metadata of the database and the results
-    meta_df = pd.read_parquet(str(metadata_targetdir))
-    best_matches_df_all = pd.read_csv(f"{mmseqs_tmp}/best_matches_tmp.m8", sep="\t", header=None)
-    
-    # adding the metadata to the result file
-    code_to_organism = meta_df.set_index('ID')['Organism'].to_dict()
-    code_to_genomeid = meta_df.set_index('ID')['GenomeID'].to_dict()
-    code_to_pubprotid = meta_df.set_index('ID')['PubProtID'].to_dict()
-    code_to_pubgeneid = meta_df.set_index('ID')['PubGeneID'].to_dict()
-    code_to_description = meta_df.set_index('ID')['Description'].to_dict()
-
-    best_matches_df_all['Organism'] = best_matches_df_all[1].map(code_to_organism)
-    best_matches_df_all['GenomeID'] = best_matches_df_all[1].map(code_to_genomeid)
-    best_matches_df_all['PubProtID'] = best_matches_df_all[1].map(code_to_pubprotid)
-    best_matches_df_all['PubGeneID'] = best_matches_df_all[1].map(code_to_pubgeneid)
-    best_matches_df_all['Description'] = best_matches_df_all[1].map(code_to_description)
-    
-    # adding header to result file
-    header = ["qseqid", "tseqid","pident", "length", "mismatch", "gapopen", "qstart", "qend", "tstart", "tend", "evalue", "bitscore", "organism", "genomeid", "proteinid", "geneid", "description"]
-    best_matches_df_all.columns = header
-    
-    # saving result file as best_matches_all.m8 and best_matches.m8
-    best_matches_df_all.to_csv(f"{mmseqs_workdir}/best_matches_all.m8", sep="\t", index=False, header=True)
-    best_matches_df = best_matches_df_all[:30]
-    best_matches_df.to_csv(f"{mmseqs_workdir}/best_matches.m8", sep="\t", index=False, header=True)
-    
-    # saving database_name to a file (not longer necessary)
-    with open(f"{mmseqs_workdir}/db_name.txt", "w") as file:
-        file.write(db_name)
-    
-    # cleaning temporal files
-    if os.path.exists(mmseqs_tmp):
-        shutil.rmtree(mmseqs_tmp)
-        print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} removed.")
+    if not os.path.exists(f"{mmseqs_tmp}/best_matches_tmp.m8"):
+        no_matches = "None of the sequences in the database match with the query sequence"
+        with open(f"{mmseqs_workdir}/no_matches.txt", 'w') as file:
+            file.write(no_matches)
+            return
+    elif os.path.getsize(f"{mmseqs_tmp}/best_matches_tmp.m8") == 0:
+        no_matches = "None of the sequences in the database match with the query sequence"
+        with open(f"{mmseqs_workdir}/no_matches.txt", 'w') as file:
+            file.write(no_matches)
+            return
     else:
-        print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} does not exist or has already been removed.")
-    
-    end_time = time.time()     
-    
-    # saving processing time in a file, just if want to have a log of it
-    with open("processing_time.txt", 'a') as archivo:
-        archivo.writelines(f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds.\n")
+        # reading the metadata of the database and the results
+        meta_df = pd.read_parquet(str(metadata_targetdir))
+        best_matches_df_all = pd.read_csv(f"{mmseqs_tmp}/best_matches_tmp.m8", sep="\t", header=None)
+        
+        # adding the metadata to the result file
+        code_to_organism = meta_df.set_index('ID')['Organism'].to_dict()
+        code_to_genomeid = meta_df.set_index('ID')['GenomeID'].to_dict()
+        code_to_pubprotid = meta_df.set_index('ID')['PubProtID'].to_dict()
+        code_to_pubgeneid = meta_df.set_index('ID')['PubGeneID'].to_dict()
+        code_to_description = meta_df.set_index('ID')['Description'].to_dict()
 
-    # DONE
-    print(Back.GREEN + Fore.BLACK + f"Done! You can find all the matches in '{mmseqs_workdir}/best_matches_all.m8', and just the first 30 in '{mmseqs_workdir}/best_matches.m8'")
-    print(Fore.GREEN + Style.BRIGHT + f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds")
+        best_matches_df_all['Organism'] = best_matches_df_all[1].map(code_to_organism)
+        best_matches_df_all['GenomeID'] = best_matches_df_all[1].map(code_to_genomeid)
+        best_matches_df_all['PubProtID'] = best_matches_df_all[1].map(code_to_pubprotid)
+        best_matches_df_all['PubGeneID'] = best_matches_df_all[1].map(code_to_pubgeneid)
+        best_matches_df_all['Description'] = best_matches_df_all[1].map(code_to_description)
+        
+        # adding header to result file
+        header = ["qseqid", "tseqid","pident", "length", "mismatch", "gapopen", "qstart", "qend", "tstart", "tend", "evalue", "bitscore", "organism", "genomeid", "proteinid", "geneid", "description"]
+        best_matches_df_all.columns = header
+        
+        # saving result file as best_matches_all.m8 and best_matches.m8
+        best_matches_df_all.to_csv(f"{mmseqs_workdir}/best_matches_all.m8", sep="\t", index=False, header=True)
+        best_matches_df = best_matches_df_all[:30]
+        best_matches_df.to_csv(f"{mmseqs_workdir}/best_matches.m8", sep="\t", index=False, header=True)
+        
+        # saving database_name to a file (not longer necessary)
+        with open(f"{mmseqs_workdir}/db_name.txt", "w") as file:
+            file.write(db_name)
+        
+        # cleaning temporal files
+        if os.path.exists(mmseqs_tmp):
+            shutil.rmtree(mmseqs_tmp)
+            print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} removed.")
+        else:
+            print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} does not exist or has already been removed.")
+        
+        end_time = time.time()     
+        
+        # saving processing time in a file, just if want to have a log of it
+        with open("processing_time.txt", 'a') as archivo:
+            archivo.writelines(f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds.\n")
+
+        # DONE
+        print(Back.GREEN + Fore.BLACK + f"Done! You can find all the matches in '{mmseqs_workdir}/best_matches_all.m8', and just the first 30 in '{mmseqs_workdir}/best_matches.m8'")
+        print(Fore.GREEN + Style.BRIGHT + f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds")
 
 
 '''
@@ -562,7 +573,9 @@ def main_function():
     parser_find_matches = subparsers.add_parser('find_matches', help='To find coincidences in the database')
     parser_find_matches.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for find_matches")
     parser_find_matches.add_argument("--query_path", type=str, required=True, help="Path to query file for find_matches")
-
+    parser_find_matches.add_argument("--evalue", type=float, default=0.0000000001, help="e value treshold")
+    parser_find_matches.add_argument("--min_seq_id", type=float, default=0.7, help="minimum sequence identity")
+    
     # Subparser for align_sequences
     parser_align_sequences = subparsers.add_parser('align_sequences', help='To align sequences')
     parser_align_sequences.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for align_sequences")
@@ -577,7 +590,7 @@ def main_function():
     if args.command == "get_database":
         get_database(args.fm_calling)
     elif args.command == "find_matches":
-        find_matches(args.job_name, args.query_path)
+        find_matches(args.job_name, args.query_path, args.evalue, args.min_seq_id)
     elif args.command == "align_sequences":
         align_sequences(args.job_name)
     elif args.command == "build_tree":
