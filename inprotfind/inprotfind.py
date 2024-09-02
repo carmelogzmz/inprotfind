@@ -446,7 +446,7 @@ def build_tree(job_name, tree_type = 'simple'):
         return
     
     # Creating tree.nwk with FastTree
-    subprocess.run(f"FastTree -nt {mmseqs_workdir}/aligned_sequences.fasta > {mmseqs_workdir}/tree.nwk", shell=True)
+    subprocess.run(f"FastTree {mmseqs_workdir}/aligned_sequences.fasta > {mmseqs_workdir}/tree.nwk", shell=True)
     print(Fore.GREEN + Style.BRIGHT + f"Tree saved in {mmseqs_workdir}/tree.nwk")
     
     # Drawing simple tree
