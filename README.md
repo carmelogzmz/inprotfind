@@ -18,7 +18,13 @@ A workflow for insect protein identification and phylogenetic analyses.
 
 ## Prerequisites
 
-**inprotfind** requires _mmseqs2_, _mafft_, _fasttree_ and _ete3_ installed in the same environment to work properly. The four tools can be easily installed using [_conda_](https://docs.anaconda.com/miniconda/) and it is the option recommended (especially for _ete3_, as other installing tools (as _pip_) do not install all the required dependencies)
+**inprotfind** requires _mmseqs2_, _mafft_, _fasttree_, _ete3_ and _streamlit_ installed in the same environment to work properly. The five tools can be easily installed using [_conda_](https://docs.anaconda.com/miniconda/) and it is the option recommended (especially for _ete3_, as other installing tools (as _pip_) do not install all the required dependencies). They can be installed all at once with:
+
+```bash
+conda install mmseqs2 mafft fasttree ete3 streamlit -y
+```
+
+or one by one:
 
 #### [_mmseqs2_](https://github.com/soedinglab/MMseqs2?tab=readme-ov-file)
 
@@ -41,13 +47,18 @@ conda install bioconda::fasttree
 ```
 conda install conda-forge::ete3
 ```
-
+#### [_streamlit_](https://streamlit.io/)
+```
+conda install conda-forge::streamlit
+```
 ## Installing inprotfind
 
-Install **inprotfind** with pip
+Install **inprotfind** with pip from the GitHub repository:
 
 ```bash
   pip install inprotfind
+
+  pip install git+https://github.com/carmelogzmz/inprotfind.git
 ```
     
 ## Using inprotfind
@@ -77,12 +88,16 @@ inprotfind get_database
 ```
 Once executed, the database, named _arthropods_OrthoDB_ is downloaded and subsequently installed in the directory where the **inprotfind** library was installed in the current environment.
 
-#### 2. find\_matches(job\_name, query\_path, db\_name="arthropods\_OrthoDB")
+#### 2. find\_matches(job\_name, query\_path, evalue = 0.0000000001, min_seq_id = 0.7)
 
-It requires two arguments:
+It requires four arguments:
 
 - `job_name` requires a name, chosen entirely by the user, to identify the search or task to be performed (e.g., Task01, BeeProtein, ProjectArboVirus, etc.). It is recommend that the user choose an informative name, to easy identification. The function creates a folder (in the working directory) with the same name where all the files created during the execution are stored. 
 - `query_path` requires the path where the file with the query protein sequence (a **fasta file**).
+- `evalue` requires the E-value threshold. the E-value is used to evaluate the significance of the sequences' similarity. It is set by default to 1e-10 (0.0000000001).
+- `min_seq_id` requires the minimum percentage of identity for two sequences to be considered homologous. It is by set by default to 0.7.
+
+NOTE: _If the `evalue` and/or the `min_seq_id` were not passed by the user, the default values are used_
 
 As an example, if the user wants to name the task as _BeeProtein01_, and the fasta file with the query protein sequence is in */home/{USER}/BeeProject/queries/query\_Bee01.fasta* the code will be:
 
@@ -149,6 +164,27 @@ inprotfind build_tree --job_name BeeProtein01 --tree_type interactive
 
 Once the function is exectuted, it creates a file named _tree.nwk_ (in the folder "BeeProtein01"). Then open the _ete3_ interface and plot the interactive phylogenetic tree.
 
+#### 5. show\_results(job\_name)
+
+It only requires the `job_name` argument to select the files on which to apply the function. 
+
+Following the same example from the previous function:
+
+_Python:_
+```python
+import inprotfind as ipf
+
+ipf.show_restuls("BeeProtein01")
+```
+
+_Shell:_
+```bash
+inprotfind show_results --job_name BeeProtein01
+```
+
+Once the function is executed, the default browser opens and shows the results from the homology searching (_best_matches.m8_) and the phylogenic tree. It also save a _tree.png_ file in the job folder with the tree drawn.
+
+
 ### complementary functions
 
 There are few secondary functions that run within the main functions to secure that all the dependencies and tools are correctly installed. 
@@ -158,7 +194,6 @@ There are few secondary functions that run within the main functions to secure t
 - **verifying_fasttree()** checks if _FastTree_ is installed in the working environment.
 
 If any of these tools is not installed, the execution stops and ask the user to install it.
-
 
 ## Workflow example
 
@@ -287,7 +322,7 @@ This function creates the _tree.nwk_ file from which the phylogenetic tree is dr
 
 NOTA: INSERTAR PNG CON EL ÁRBOL
 
-
+![árbol filogenético](./README_files/tree_example5.png)
 
 Here, we can see that the query sequences is located in the tree together with the 30 more similar sequences.
 
@@ -311,13 +346,18 @@ example           organism          annotation
 query_example05   Bombus_hortorum   Cystathionine beta-synthase OS=Macaca fascicularis OX=9541 GN=CBS PE=2 SV=3
 ```
 
-We see here that the protein belongs to _Bombus hortorum_, and according to the annotation, it is Cystathionine beta-synthase. In the _best_matches.m8_ file we show that the best match corresponded to a Cystathionine beta-synthase belonging to _Bombus vancouverensis nearticus_. Thus, we success identifying the protein and the _Genus_ of the species. We couldn't get the real species as _Bombus hortorum_ is not represented in the arthropods_OrthoDB database. The species in the examples 1 to 4 and 6 are represented in the database, so running these examples finishes with an exact species identification. The species in the examples 7 to 10 have different representation status (family or order), so the aproximation to the taxonomic identification will be to these levels. 
+We see here that the protein belongs to _Bombus hortorum_, and according to the annotation, it is Cystathionine beta-synthase. In the _best_matches.m8_ file we show that the best match corresponded to a Cystathionine beta-synthase belonging to _Bombus vancouverensis nearticus_. Thus, we success identifying the protein and the _Genus_ of the species. We couldn't get the real species as _Bombus hortorum_ is not represented in the arthropods_OrthoDB database.
+
+The species in the examples 1 to 4 and 6 are represented in the database, so running these examples finishes with an exact species identification. The species in the examples 7 to 10 have different representation status (family or order), so the aproximation to the taxonomic identification will be to these levels. For the example 8, if find_matches is executed with the default evalue (1e-10) and min_seq_id (0.7), it return no matches, as none of the sequences in the database fulfill these requierements. To get results evalue may be increased (0.01 for example), and min_seq_id may be reduced (<0.7).
 
 ## Summary
 
 We have managed to progress from an unknown protein sequence to an approximation of the protein's nature, its specific origin, and its context in the phylogenetic tree. inprotfind emerges as a very user-friendly tool for the rapid characterization of insect proteins.
+
 ## Authors
 
 Carmelo Gómez Martínez
 - GitHub: [@carmelogzmz](https://www.github.com/carmelogzmz)
+
+
 
