@@ -101,7 +101,7 @@ def get_database(fm_calling = False):
         # finding the database in zenodo.org
         save_path = pkg_resources.files("inprotfind").joinpath("databases/arthropods_OrthoDB.tar.gz")
         extract_path = pkg_resources.files("inprotfind").joinpath("databases")
-        doi = "https://zenodo.org/records/13386908/files/arthropodsDB.tar.gz?download=1"
+        doi = "https://zenodo.org/records/13622813/files/arthropodsDB.tar.gz?download=1"
         
         response = requests.get(doi, stream=True)
         total_size = int(response.headers.get('content-length', 0))  # Tamaño total del archivo
@@ -247,11 +247,15 @@ def find_matches(job_name, query_path, evalue = 0.0000000001, min_seq_id = 0.7):
         no_matches = "None of the sequences in the database match with the query sequence"
         with open(f"{mmseqs_workdir}/no_matches.txt", 'w') as file:
             file.write(no_matches)
+            print(Fore.RED + Style.BRIGHT + no_matches)
+            print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
             return
     elif os.path.getsize(f"{mmseqs_tmp}/best_matches_tmp.m8") == 0:
         no_matches = "None of the sequences in the database match with the query sequence"
         with open(f"{mmseqs_workdir}/no_matches.txt", 'w') as file:
             file.write(no_matches)
+            print(Fore.RED + Style.BRIGHT + no_matches)
+            print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
             return
     else:
         # reading the metadata of the database and the results
@@ -299,7 +303,7 @@ def find_matches(job_name, query_path, evalue = 0.0000000001, min_seq_id = 0.7):
 
         # DONE
         print(Back.GREEN + Fore.BLACK + f"Done! You can find all the matches in '{mmseqs_workdir}/best_matches_all.m8', and just the first 30 in '{mmseqs_workdir}/best_matches.m8'")
-        print(Fore.GREEN + Style.BRIGHT + f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds")
+    print(Fore.GREEN + Style.BRIGHT + f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds")
 
 
 '''
@@ -477,7 +481,6 @@ def build_tree(job_name, tree_type = 'simple'):
         # plot tree
         t.show(tree_style=ts)
 
-
 ############################
 #  COMPLEMENTARY FUNCTIONS #
 ############################
@@ -518,6 +521,22 @@ def verifying_fasttree():
     except FileNotFoundError:
         raise EnvironmentError("FastTree is not installed or is not in the PATH. Please, install it before using 'inprotfind.build_tree' function")
 
+'''
+# show results function
+########################
+
+This function run the script ipf_report.py that build a report with streamlit and 
+show it in the browser.
+'''
+
+def show_results(job_name):
+
+    # Path to ipf_report.py script
+    app_script = pkg_resources.files("inprotfind").joinpath("ipf_report.py")
+        
+    # Execution
+    subprocess.run(["streamlit", "run", app_script, "--", 
+                    "--job_name", job_name])
 
 '''
 # example results function
@@ -531,11 +550,11 @@ def show_example_result(example):
     example = int(example)
     if example > 0 and example <= 10:
         result = pkg_resources.files("inprotfind").joinpath("query_examples/protein_names.txt")
-        df = pd.read_csv(result, sep=';', header=0)
+        df = pd.read_csv(result, sep='\t', header=0)
         if example > 0 and example < 10:
-            fila_deseada = df[df['example'] == f'query_example0{example}']
+            fila_deseada = df[df['Example'] == f'example0{example}']
         elif example == 10:
-            fila_deseada = df[df['example'] == f'query_example{example}']
+            fila_deseada = df[df['Example'] == f'example{example}']
         
         # print the header and the desired row
         if not fila_deseada.empty:
@@ -547,7 +566,6 @@ def show_example_result(example):
         print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
         return   
    
-
 ###########################################
 # RUNNING THE FUNCTIONS FROM THE TERMINAL #
 ###########################################
@@ -585,6 +603,13 @@ def main_function():
     parser_build_tree.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for build_tree")
     parser_build_tree.add_argument("--tree_type", type=str, default=None, help="Tree type for build_tree. It may be 'simple' (default) or 'interactive'")
 
+    # subparser for show_results
+    parser_show_results = subparsers.add_parser('show_results', help='To show the results with Streamlit')
+    parser_show_results.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for show_results")
+
+    # subparser for show_results
+    parser_show_example_result = subparsers.add_parser('show_example_result', help='To show the results with Streamlit')
+    parser_show_example_result.add_argument("--example", type=str, required=True, help="Name of the 'job' for show_results")
     args = parser.parse_args()
 
     if args.command == "get_database":
@@ -595,6 +620,10 @@ def main_function():
         align_sequences(args.job_name)
     elif args.command == "build_tree":
         build_tree(args.job_name, args.tree_type)
+    elif args.command == "show_results":
+        show_results(args.job_name)
+    elif args.command == "show_example_result":
+        show_example_result(args.example)
     else:
         print("The command was not recognised.")
 
