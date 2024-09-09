@@ -319,13 +319,27 @@ ipf.build_tree(job_name = "QueryExample5", tree_type = "simple")
 ```
 This function creates the _tree.nwk_ file from which the phylogenetic tree is drawn. We will not see again the directory tree as the only addition is _tree.nwk_ to the list of files. When the function finishes, the tree is drawn (in a pop-up window or in the Plots tab if using and IDE with this feature). It should look something like this:
 
-
-NOTA: INSERTAR PNG CON EL ÁRBOL
-
 ![árbol filogenético](./README_files/tree_example5.png)
 
-Here, we can see that the query sequences is located in the tree together with the 30 more similar sequences.
+Here, we can see that the query sequences is located in the tree together with the most similar sequences from the database. `tree_type = "simple"`does not create the prettiest tree. To get a quick but better tree just execute:
 
+```python
+import inprotfind as ipf
+
+ipf.show_results(job_name = "QueryExample5")
+```
+
+This opens the browser and shows a static tree constructed with ete3. This tree is automatically saved as tree.png in the job folder. It looks like this:
+
+![árbol filogenético](./README_files/tree_example5_streamlit.png)
+
+Running the function build_tree with `tree_type = "interactive"` it opens ETE Tree Browser where the user may change some features on-the-fly. 
+
+```python
+import inprotfind as ipf
+
+ipf.build_tree(job_name = "QueryExample5", tree_type = "interactive")
+```
 
 #### 4. Checking the results
 

@@ -473,7 +473,7 @@ def build_tree(job_name, tree_type = 'simple'):
         # defining tree style
         ts = TreeStyle()
         ts.show_leaf_name = True
-        ts.mode = "c"
+        ts.mode = "r"
         ts.arc_start = -180  # 0 degrees = 3 o'clock
         ts.arc_span = 180
         
