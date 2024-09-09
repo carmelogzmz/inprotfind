@@ -12,7 +12,7 @@ from io import BytesIO
 from ete3 import Tree, TreeStyle, NodeStyle, faces
 
 # Función para dibujar y guardar el árbol de ete3
-def draw_with_ete(tree_file, output_file="tree.png", label_size=10, highlight_seq=None, vertical_margin=10):
+def draw_with_ete(tree_file, output_file, label_size=10, highlight_seq=None, vertical_margin=10):
     try:
         # Cargar el árbol usando el formato adecuado
         tree = Tree(tree_file, format=1)  # Ajusta 'format' si es necesario
@@ -103,7 +103,8 @@ if __name__ == "__main__":
         highlight_seq = seq_name
         branch_width = 2
         vertical_margin = 6
-        output_image = draw_with_ete(tree_file=tree_file, label_size=label_size, highlight_seq=highlight_seq, vertical_margin=vertical_margin)
+        output_file = f'{mmseqs_workdir}/tree.png'
+        output_image = draw_with_ete(tree_file=tree_file, output_file=output_file, label_size=label_size, highlight_seq=highlight_seq, vertical_margin=vertical_margin)
 
         # Verificar si se generó la imagen correctamente
         if output_image and os.path.exists(output_image):
