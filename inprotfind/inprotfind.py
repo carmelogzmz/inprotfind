@@ -512,7 +512,7 @@ This function run the script ipf_report.py that build a report with streamlit an
 show it in the browser.
 '''
 
-def show_results(job_name, id_to_show="all"):
+def show_results(job_name, query_id="all"):
 
     # Ruta del archivo app.py que ejecuta Streamlit
     app_script = pkg_resources.files("inprotfind").joinpath("ipf_report.py")
@@ -521,7 +521,7 @@ def show_results(job_name, id_to_show="all"):
      
     # Ejecutar el script de Streamlit mediante un subproceso
     subprocess.run(["streamlit", "run", app_script, "--", 
-                    "--job_name", job_name, "--id_to_show", id_to_show])
+                    "--job_name", job_name, "--query_id", query_id])
 
 ############################
 #  COMPLEMENTARY FUNCTIONS #
@@ -635,7 +635,7 @@ def main_function():
     # subparser for show_results
     parser_show_results = subparsers.add_parser('show_results', help='To show the results with Streamlit')
     parser_show_results.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for show_results")
-    parser_show_results.add_argument("--id_to_show", type=str, default="all", help="Name of the 'job' for show_results")
+    parser_show_results.add_argument("--query_id", type=str, default="all", help="ID of the query sequence to show its results")
     
     # subparser for show_example_results
     parser_show_example_result = subparsers.add_parser('show_example_result', help='To show the results with Streamlit')
@@ -651,7 +651,7 @@ def main_function():
     elif args.command == "build_tree":
         build_tree(args.job_name, args.query_id, args.tree_type)
     elif args.command == "show_results":
-        show_results(args.job_name, args.id_to_show)
+        show_results(args.job_name, args.query_id)
     elif args.command == "show_example_result":
         show_example_result(args.example)
     else:
