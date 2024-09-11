@@ -71,7 +71,7 @@ def draw_with_ete(tree_file, output_file, label_size=10, highlight_seq=None, ver
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_name', type=str, required=True)
-    parser.add_argument('--id_to_show', type=str, default="all")
+    parser.add_argument('--query_id', type=str, default="all")
     return parser.parse_args()
 
 # Leer los argumentos
@@ -89,9 +89,9 @@ if __name__ == "__main__":
     df = pd.read_csv(best_matches_file, sep='\t', header=None, skiprows=1)
     df.columns = ['qseqid', 'tseqid', 'pident', 'length', 'mismatch', 'gapopen', 'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore', 'organism', 'genomeid', 'proteinid', 'geneid', 'description']
 
-    if not args.id_to_show == "all":
-        output = df[df['qseqid'] == args.id_to_show]
-        st.title(f"Report of {mmseqs_workdir}: {args.id_to_show}")
+    if not args.query_id == "all":
+        output = df[df['qseqid'] == args.query_id]
+        st.title(f"Report of {mmseqs_workdir}: {args.query_id}")
     else:
         output = df
         st.title(f"Report of {mmseqs_workdir}: All")
@@ -100,8 +100,8 @@ if __name__ == "__main__":
     # Mostrar la tabla
     st.dataframe(output)
 
-    if not args.id_to_show == "all":
-        tree_file = f'{mmseqs_workdir}/trees/{args.id_to_show}_tree.nwk'    
+    if not args.query_id == "all":
+        tree_file = f'{mmseqs_workdir}/trees/{args.query_id}_tree.nwk'    
         if os.path.exists(tree_file):
             seq_name = output.iloc[0,0]
             # Cargar y dibujar el árbol filogenético
@@ -111,7 +111,7 @@ if __name__ == "__main__":
             highlight_seq = seq_name
             branch_width = 2
             vertical_margin = 6
-            output_file = f'{mmseqs_workdir}/trees/{args.id_to_show}_tree.png'    
+            output_file = f'{mmseqs_workdir}/trees/{args.query_id}_tree.png'    
             output_image = draw_with_ete(tree_file=tree_file, output_file=output_file, label_size=label_size, highlight_seq=highlight_seq, vertical_margin=vertical_margin)
     
             # Verificar si se generó la imagen correctamente

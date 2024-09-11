@@ -624,7 +624,7 @@ def main_function():
     # Subparser for align_sequences
     parser_align_sequences = subparsers.add_parser('align_sequences', help='To align sequences')
     parser_align_sequences.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for align_sequences")
-    parser_align_sequences.add_argument("--ids_to_align", type=list, default=None, help="List of query ids to align")
+    parser_align_sequences.add_argument("--ids_to_align", nargs='+', default=None, help="List of query ids to align")
 
     # Subparser for build_tree
     parser_build_tree = subparsers.add_parser('build_tree', help='To build the phylogenetic tree')
