@@ -237,7 +237,6 @@ def find_matches(job_name, query_path, evalue = 0.0000000001, min_seq_id = 0.7):
 
     # executing mmseqs2 search in the database
     subprocess.run(f"mmseqs search {mmseqs_querydir}/queryDB {mmseqs_targetdir}/{db_name}DB {mmseqs_resultdir}/resultDB {mmseqs_tmp} --max-seqs 100 -e {evalue} --min-seq-id {min_seq_id}", shell=True)
-
     
     print(Fore.GREEN + Style.BRIGHT + "Passing results to table and adding metadata...")
     # transforming results to tabular format
@@ -281,7 +280,7 @@ def find_matches(job_name, query_path, evalue = 0.0000000001, min_seq_id = 0.7):
         
         # saving result file as best_matches_all.m8 and best_matches.m8
         best_matches_df_all.to_csv(f"{mmseqs_workdir}/best_matches_all.m8", sep="\t", index=False, header=True)
-        best_matches_df = best_matches_df_all[:30]
+        best_matches_df = best_matches_df_all.groupby('qseqid').head(30).reset_index(drop=True)
         best_matches_df.to_csv(f"{mmseqs_workdir}/best_matches.m8", sep="\t", index=False, header=True)
         
         # saving database_name to a file (not longer necessary)
@@ -303,7 +302,7 @@ def find_matches(job_name, query_path, evalue = 0.0000000001, min_seq_id = 0.7):
 
         # DONE
         print(Back.GREEN + Fore.BLACK + f"Done! You can find all the matches in '{mmseqs_workdir}/best_matches_all.m8', and just the first 30 in '{mmseqs_workdir}/best_matches.m8'")
-    print(Fore.GREEN + Style.BRIGHT + f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds")
+        print(Fore.GREEN + Style.BRIGHT + f"Searching for {job_name} complete in {end_time - start_time:.2f} seconds")
 
 
 '''
@@ -319,7 +318,7 @@ with the data found in the folder of the selected job (job_name). It requires
 that the database used to create the job still exists.
 '''
 
-def align_sequences(job_name):
+def align_sequences(job_name, ids_to_align=None):
         
     verifying_mmseqs2()
     verifying_mafft()
@@ -370,62 +369,79 @@ def align_sequences(job_name):
     
     # reading best_matches.m8
     result_file = f"{mmseqs_workdir}/best_matches.m8"
-    
-    # reading sequences accession codes
     df = pd.read_csv(result_file, sep='\t', skiprows=1, header=None)
-    sequence_ids = set(df[1].str.strip())
     
-    # saving the ids of the sequences in a temporal file
-    sequence_ids = pd.DataFrame(sequence_ids)
-    sequence_ids.to_csv(f"{mmseqs_tmp}/sequence_ids.txt", sep="\t", index=False, header=False)
+    # Crear una carpeta para almacenar los alineamientos
+    os.makedirs(f"{mmseqs_workdir}/alignments", exist_ok=True)
     
-    # Filtering the database using the list of ids saved previouly
-    subprocess.run(f"mmseqs createsubdb {mmseqs_tmp}/sequence_ids.txt {mmseqs_targetdir}/{db_name}DB {mmseqs_filtereddir}/filteredDB --id-mode 1", shell=True)
+    # Obtener el listado único de secuencias de consulta en queryDB
+    query_sequences = df[0].unique()
+    if ids_to_align is not None:
+            query_sequences = [seq for seq in query_sequences if seq in ids_to_align]
     
-    # Transforming the filtered database to FASTA
-    subprocess.run(f"mmseqs convert2fasta {mmseqs_filtereddir}/filteredDB {mmseqs_tmp}/filtered_sequences_tmp.fasta", shell=True)
-    
-    metadatos = pd.Series(df[14].values, index=df[1]).to_dict()
-    # Leer el archivo FASTA original y crear un nuevo archivo con los IDs reemplazados
-    with open(f'{mmseqs_tmp}/filtered_sequences_tmp.fasta', 'r') as input_fasta, open(f'{mmseqs_tmp}/filtered_sequences_pubprotid.fasta', 'w') as output_fasta:
-        for record in SeqIO.parse(input_fasta, "fasta"):
-            original_id = record.id
-            if original_id in metadatos:
-                # Reemplazar el ID en la cabecera con el PubProtID
-                record.id = metadatos[original_id]
-                record.description = metadatos[original_id]  # Actualizar también la descripción si es necesario
-            SeqIO.write(record, output_fasta, "fasta")
-    
-    # Transforming the query database to FASTA
-    subprocess.run(f"mmseqs convert2fasta {mmseqs_querydir}/queryDB {mmseqs_tmp}/query.fasta", shell=True)
-    
-    # Reading query sequence
-    query_seq = list(SeqIO.parse(f"{mmseqs_tmp}/query.fasta", "fasta"))[0]
-
-    # adding the query sequence to the filtered sequences
-    with open(f"{mmseqs_tmp}/filtered_sequences_pubprotid.fasta", "r") as infile, open(f"{mmseqs_workdir}/filtered_sequences.fasta", "w") as outfile:
-        SeqIO.write(query_seq, outfile, "fasta")  # add first the query sequence
-        outfile.write(infile.read())  # then the filtered sequences
-        
-    # aligning
-    print(Fore.GREEN + Style.BRIGHT + "Sequences aligning...")
     start_time = time.time()
-    subprocess.run(f"mafft --auto {mmseqs_workdir}/filtered_sequences.fasta > {mmseqs_workdir}/aligned_sequences.fasta", shell=True)
-    print(Fore.GREEN + Style.BRIGHT + f"Aligned sequences saved in {mmseqs_workdir}/aligned_sequences.fasta")
+    # Procesar cada secuencia de consulta de forma individual
+    for query_id in query_sequences:
+        # Comprobar si el archivo de alineamiento ya existe
+        aligned_file = f"{mmseqs_workdir}/alignments/{query_id}_aligned.fasta"
+        if os.path.exists(aligned_file):
+            print(f"Alineamiento para {query_id} ya existe, saltando...")
+            continue  # Saltar esta secuencia si ya está alineada
+        
+        print(f"Procesando secuencia de consulta: {query_id}")
+        
+        # Filtrar las secuencias homólogas para la secuencia de consulta actual
+        homologs_df = df[df[0] == query_id]
+        sequence_ids = set(homologs_df[1].str.strip())
+        
+        # Guardar los IDs de las secuencias homólogas en un archivo temporal
+        sequence_ids_df = pd.DataFrame(sequence_ids)
+        sequence_ids_df.to_csv(f"{mmseqs_tmp}/sequence_ids.txt", sep="\t", index=False, header=False)
+        
+        # Filtrar la base de datos targetDB usando los IDs de las secuencias homólogas
+        subprocess.run(f"mmseqs createsubdb {mmseqs_tmp}/sequence_ids.txt {mmseqs_targetdir}/{db_name}DB {mmseqs_filtereddir}/filteredDB_{query_id} --id-mode 1", shell=True)
+        
+        # Convertir la base de datos filtrada a formato FASTA
+        subprocess.run(f"mmseqs convert2fasta {mmseqs_filtereddir}/filteredDB_{query_id} {mmseqs_tmp}/filtered_sequences_tmp.fasta", shell=True)
+        
+        # Obtener los metadatos de las secuencias del archivo .m8 (pubprotid)
+        metadatos = pd.Series(homologs_df[14].values, index=homologs_df[1]).to_dict()
+        
+        # Sustituir NaN por el identificador original
+        for key, value in metadatos.items():
+            if pd.isna(value):  # Si el valor es NaN
+                metadatos[key] = key  # Reemplazar con el key (ID original)
+            
+        # Leer el archivo FASTA filtrado y reemplazar los IDs por los pubprotid
+        with open(f'{mmseqs_tmp}/filtered_sequences_tmp.fasta', 'r') as input_fasta, open(f'{mmseqs_tmp}/filtered_sequences_pubprotid.fasta', 'w') as output_fasta:
+            for record in SeqIO.parse(input_fasta, "fasta"):
+                original_id = record.id
+                if original_id in metadatos:
+                    # Reemplazar el ID en la cabecera con el PubProtID
+                    record.id = metadatos[original_id]
+                    record.description = metadatos[original_id]  # Actualizar también la descripción
+                SeqIO.write(record, output_fasta, "fasta")
+        
+        # Convertir la base de datos queryDB a FASTA
+        subprocess.run(f"mmseqs convert2fasta {mmseqs_querydir}/queryDB {mmseqs_tmp}/query.fasta", shell=True)
+        
+        # Leer la secuencia de la consulta actual en queryDB
+        query_seq = [seq for seq in SeqIO.parse(f"{mmseqs_tmp}/query.fasta", "fasta") if seq.id == query_id][0]
+        
+        # Agregar la secuencia de consulta a las secuencias homólogas filtradas
+        with open(f"{mmseqs_tmp}/filtered_sequences_pubprotid.fasta", "r") as infile, open(f"{mmseqs_workdir}/alignments/{query_id}_sequences.fasta", "w") as outfile:
+            SeqIO.write(query_seq, outfile, "fasta")  # Escribir primero la secuencia de consulta
+            outfile.write(infile.read())  # Luego, escribir las secuencias homólogas
+        
+        # Alinear las secuencias con MAFFT
+        print(f"Alineando secuencias para {query_id}...")
+        subprocess.run(f"mafft --auto {mmseqs_workdir}/alignments/{query_id}_sequences.fasta > {mmseqs_workdir}/alignments/{query_id}_aligned.fasta", shell=True)
+    
+        print(f"Resultados guardados en {mmseqs_workdir}/alignments/{query_id}_aligned.fasta")
+        
     end_time = time.time()
-    print(Fore.GREEN + Style.BRIGHT + f"Alignment with MAFFT completed in {end_time - start_time:.2f} seconds.")
+    print(f"Alineamientos completados para todas la secuencias de consulta en {end_time - start_time:.2f} segundos.")
     
-    # removing temporal files
-    if os.path.exists(mmseqs_tmp):
-        shutil.rmtree(mmseqs_tmp)
-        print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} removed.")
-    else:
-        print(Fore.GREEN + Style.BRIGHT + f"Temporal folder {mmseqs_tmp} does not exist or has already been removed.")
-    
-    # DONE
-    print(Back.GREEN + Fore.BLACK + f"Done! You can find the filtered sequences in '{mmseqs_workdir}/filtered_sequences.fasta', and the alignment results in '{mmseqs_workdir}/aligned_sequences.fasta'")
-  
-
 '''
 # build_tree
 ############
@@ -436,12 +452,17 @@ creates a file called tree.nwk and draws a tree. You can choose to draw the
 tree in a simple way (default) or interactively using the "ete3" library.
 '''
 
-def build_tree(job_name, tree_type = 'simple'):
+def build_tree(job_name, query_id, tree_type = 'simple'):
     
     verifying_fasttree()
     
     # Managing directories
     mmseqs_workdir = job_name
+    qseqid = query_id
+    mmseqs_qseqid = f"{qseqid}_aligned.fasta"
+    
+    # Crear una carpeta para almacenar los alineamientos
+    os.makedirs(f"{mmseqs_workdir}/trees", exist_ok=True)
     
     # Verifying if the directory exists
     if not os.path.isdir(mmseqs_workdir):
@@ -450,13 +471,14 @@ def build_tree(job_name, tree_type = 'simple'):
         return
     
     # Creating tree.nwk with FastTree
-    subprocess.run(f"FastTree {mmseqs_workdir}/aligned_sequences.fasta > {mmseqs_workdir}/tree.nwk", shell=True)
-    print(Fore.GREEN + Style.BRIGHT + f"Tree saved in {mmseqs_workdir}/tree.nwk")
+    subprocess.run(f"FastTree {mmseqs_workdir}/alignments/{mmseqs_qseqid} > {mmseqs_workdir}/trees/{qseqid}_tree.nwk", shell=True)
+    print(Fore.GREEN + Style.BRIGHT + f"Tree saved in {mmseqs_workdir}/trees/{qseqid}_tree.nwk")
+    
     
     # Drawing simple tree
     if(tree_type == 'simple'):
         print(Fore.GREEN + Style.BRIGHT + "Default style tree drawn.")
-        tree = Phylo.read(f"{mmseqs_workdir}/tree.nwk", "newick")
+        tree = Phylo.read(f"{mmseqs_workdir}/trees/{qseqid}_tree.nwk", "newick")
         fig = plt.figure(figsize=(12,12))
         print(Back.GREEN + Fore.BLACK + "Done! You can find the tree drawn in the Plots tab or in a pop-up window")
         Phylo.draw(tree, do_show=True, show_confidence=True, axes=plt.gca())
@@ -468,7 +490,7 @@ def build_tree(job_name, tree_type = 'simple'):
     if(tree_type == "interactive"):
         print(Fore.GREEN + Style.BRIGHT + "Interactive tree drawn.")     
         # reading the tree
-        t = Tree(f"{mmseqs_workdir}/tree.nwk")
+        t = Tree(f"{mmseqs_workdir}/trees/{qseqid}_tree.nwk")
         
         # defining tree style
         ts = TreeStyle()
@@ -480,6 +502,26 @@ def build_tree(job_name, tree_type = 'simple'):
         print(Back.GREEN + Fore.BLACK + "Done! You can find the interactive tree drawn in a pop-up window")
         # plot tree
         t.show(tree_style=ts)
+
+
+'''
+# Plot results
+########################
+
+This function run the script ipf_report.py that build a report with streamlit and 
+show it in the browser.
+'''
+
+def show_results(job_name, id_to_show="all"):
+
+    # Ruta del archivo app.py que ejecuta Streamlit
+    app_script = pkg_resources.files("inprotfind").joinpath("ipf_report.py")
+    
+    # Define los archivos basados en el job_name
+     
+    # Ejecutar el script de Streamlit mediante un subproceso
+    subprocess.run(["streamlit", "run", app_script, "--", 
+                    "--job_name", job_name, "--id_to_show", id_to_show])
 
 ############################
 #  COMPLEMENTARY FUNCTIONS #
@@ -521,22 +563,6 @@ def verifying_fasttree():
     except FileNotFoundError:
         raise EnvironmentError("FastTree is not installed or is not in the PATH. Please, install it before using 'inprotfind.build_tree' function")
 
-'''
-# show results function
-########################
-
-This function run the script ipf_report.py that build a report with streamlit and 
-show it in the browser.
-'''
-
-def show_results(job_name):
-
-    # Path to ipf_report.py script
-    app_script = pkg_resources.files("inprotfind").joinpath("ipf_report.py")
-        
-    # Execution
-    subprocess.run(["streamlit", "run", app_script, "--", 
-                    "--job_name", job_name])
 
 '''
 # example results function
@@ -566,6 +592,7 @@ def show_example_result(example):
         print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
         return   
    
+
 ###########################################
 # RUNNING THE FUNCTIONS FROM THE TERMINAL #
 ###########################################
@@ -597,17 +624,20 @@ def main_function():
     # Subparser for align_sequences
     parser_align_sequences = subparsers.add_parser('align_sequences', help='To align sequences')
     parser_align_sequences.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for align_sequences")
+    parser_align_sequences.add_argument("--ids_to_align", type=list, default=None, help="List of query ids to align")
 
     # Subparser for build_tree
     parser_build_tree = subparsers.add_parser('build_tree', help='To build the phylogenetic tree')
     parser_build_tree.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for build_tree")
+    parser_build_tree.add_argument("--query_id", type=str, required=True, help="Name of the query to build its tree")
     parser_build_tree.add_argument("--tree_type", type=str, default=None, help="Tree type for build_tree. It may be 'simple' (default) or 'interactive'")
 
     # subparser for show_results
     parser_show_results = subparsers.add_parser('show_results', help='To show the results with Streamlit')
     parser_show_results.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for show_results")
-
-    # subparser for show_results
+    parser_show_results.add_argument("--id_to_show", type=str, default="all", help="Name of the 'job' for show_results")
+    
+    # subparser for show_example_results
     parser_show_example_result = subparsers.add_parser('show_example_result', help='To show the results with Streamlit')
     parser_show_example_result.add_argument("--example", type=str, required=True, help="Name of the 'job' for show_results")
     args = parser.parse_args()
@@ -617,11 +647,11 @@ def main_function():
     elif args.command == "find_matches":
         find_matches(args.job_name, args.query_path, args.evalue, args.min_seq_id)
     elif args.command == "align_sequences":
-        align_sequences(args.job_name)
+        align_sequences(args.job_name, args.ids_to_align)
     elif args.command == "build_tree":
-        build_tree(args.job_name, args.tree_type)
+        build_tree(args.job_name, args.query_id, args.tree_type)
     elif args.command == "show_results":
-        show_results(args.job_name)
+        show_results(args.job_name, args.id_to_show)
     elif args.command == "show_example_result":
         show_example_result(args.example)
     else:

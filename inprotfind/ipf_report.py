@@ -71,6 +71,7 @@ def draw_with_ete(tree_file, output_file, label_size=10, highlight_seq=None, ver
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--job_name', type=str, required=True)
+    parser.add_argument('--id_to_show', type=str, default="all")
     return parser.parse_args()
 
 # Leer los argumentos
@@ -81,33 +82,40 @@ if __name__ == "__main__":
     # Managing directories
     mmseqs_workdir = args.job_name
     
-    st.title(f"Report of {mmseqs_workdir}")
-    
-    st.header("Homology searching results")
+
     best_matches_file = f'{mmseqs_workdir}/best_matches.m8'
     
     # Cargar el archivo de resultados como un DataFrame
     df = pd.read_csv(best_matches_file, sep='\t', header=None, skiprows=1)
     df.columns = ['qseqid', 'tseqid', 'pident', 'length', 'mismatch', 'gapopen', 'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore', 'organism', 'genomeid', 'proteinid', 'geneid', 'description']
 
-    # Mostrar la tabla
-    st.dataframe(df)
-
-    tree_file = f'{mmseqs_workdir}/tree.nwk'    
-    if os.path.exists(tree_file):
-        seq_name = df.iloc[0,0]
-        # Cargar y dibujar el árbol filogenético
-        st.header("Phylogenetic tree")
+    if not args.id_to_show == "all":
+        output = df[df['qseqid'] == args.id_to_show]
+        st.title(f"Report of {mmseqs_workdir}: {args.id_to_show}")
+    else:
+        output = df
+        st.title(f"Report of {mmseqs_workdir}: All")
         
-        label_size = 6
-        highlight_seq = seq_name
-        branch_width = 2
-        vertical_margin = 6
-        output_file = f'{mmseqs_workdir}/tree.png'
-        output_image = draw_with_ete(tree_file=tree_file, output_file=output_file, label_size=label_size, highlight_seq=highlight_seq, vertical_margin=vertical_margin)
+    st.header("Homology searching results")
+    # Mostrar la tabla
+    st.dataframe(output)
 
-        # Verificar si se generó la imagen correctamente
-        if output_image and os.path.exists(output_image):
-            # Mostrar la imagen en Streamlit
-            image_bytes = BytesIO(open(output_image, 'rb').read())
-            st.image(image_bytes, use_column_width=True)
+    if not args.id_to_show == "all":
+        tree_file = f'{mmseqs_workdir}/trees/{args.id_to_show}_tree.nwk'    
+        if os.path.exists(tree_file):
+            seq_name = output.iloc[0,0]
+            # Cargar y dibujar el árbol filogenético
+            st.header("Phylogenetic tree")
+            
+            label_size = 6
+            highlight_seq = seq_name
+            branch_width = 2
+            vertical_margin = 6
+            output_file = f'{mmseqs_workdir}/trees/{args.id_to_show}_tree.png'    
+            output_image = draw_with_ete(tree_file=tree_file, output_file=output_file, label_size=label_size, highlight_seq=highlight_seq, vertical_margin=vertical_margin)
+    
+            # Verificar si se generó la imagen correctamente
+            if output_image and os.path.exists(output_image):
+                # Mostrar la imagen en Streamlit
+                image_bytes = BytesIO(open(output_image, 'rb').read())
+                st.image(image_bytes, use_column_width=True)
