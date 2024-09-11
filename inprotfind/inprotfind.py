@@ -452,56 +452,76 @@ creates a file called tree.nwk and draws a tree. You can choose to draw the
 tree in a simple way (default) or interactively using the "ete3" library.
 '''
 
-def build_tree(job_name, query_id, tree_type = 'simple'):
-    
+def build_tree(job_name, query_id=None, tree_type='simple'):
+
+    start_time = time.time()
     verifying_fasttree()
-    
+
     # Managing directories
     mmseqs_workdir = job_name
+    alignments_dir = f"{mmseqs_workdir}/alignments"
+    trees_dir = f"{mmseqs_workdir}/trees"
     qseqid = query_id
-    mmseqs_qseqid = f"{qseqid}_aligned.fasta"
-    
-    # Crear una carpeta para almacenar los alineamientos
-    os.makedirs(f"{mmseqs_workdir}/trees", exist_ok=True)
-    
-    # Verifying if the directory exists
+
+    # Crear una carpeta para almacenar los árboles
+    os.makedirs(trees_dir, exist_ok=True)
+
+    # Verificar si el directorio de trabajo existe
     if not os.path.isdir(mmseqs_workdir):
         print(Fore.RED + Style.BRIGHT + f"The job folder named {mmseqs_workdir} does not exist. Please, choose an existing job folder or run first the 'find_matches' function.")
         print(Fore.GREEN + Style.BRIGHT + "Execution stopped. Returning to the prompt line.")
         return
-    
-    # Creating tree.nwk with FastTree
-    subprocess.run(f"FastTree {mmseqs_workdir}/alignments/{mmseqs_qseqid} > {mmseqs_workdir}/trees/{qseqid}_tree.nwk", shell=True)
-    print(Fore.GREEN + Style.BRIGHT + f"Tree saved in {mmseqs_workdir}/trees/{qseqid}_tree.nwk")
-    
-    
-    # Drawing simple tree
-    if(tree_type == 'simple'):
-        print(Fore.GREEN + Style.BRIGHT + "Default style tree drawn.")
-        tree = Phylo.read(f"{mmseqs_workdir}/trees/{qseqid}_tree.nwk", "newick")
-        fig = plt.figure(figsize=(12,12))
-        print(Back.GREEN + Fore.BLACK + "Done! You can find the tree drawn in the Plots tab or in a pop-up window")
-        Phylo.draw(tree, do_show=True, show_confidence=True, axes=plt.gca())
-        ax = fig.gca()
-        ax.set_axis_off()
-        print(Back.GREEN + Fore.BLACK + "Done! You can find the tree drawn in the Plots tab or in a pop-up window")
-    
-    # Drawing interactive tree
-    if(tree_type == "interactive"):
-        print(Fore.GREEN + Style.BRIGHT + "Interactive tree drawn.")     
-        # reading the tree
-        t = Tree(f"{mmseqs_workdir}/trees/{qseqid}_tree.nwk")
+
+    # Si se proporciona un query_id, construir solo el árbol para ese alineamiento
+    if query_id:
+        mmseqs_qseqid = f"{query_id}_aligned.fasta"
+        alignment_path = f"{alignments_dir}/{mmseqs_qseqid}"
+        if os.path.isfile(alignment_path):
+            subprocess.run(f"FastTree {alignment_path} > {trees_dir}/{query_id}_tree.nwk", shell=True)
+            print(Fore.GREEN + Style.BRIGHT + f"Tree saved in {trees_dir}/{query_id}_tree.nwk")
+        else:
+            print(Fore.RED + Style.BRIGHT + f"The alignment file {mmseqs_qseqid} does not exist in {alignments_dir}.")
+
+        # Drawing simple tree
+        if(tree_type == 'simple'):
+            print(Fore.GREEN + Style.BRIGHT + "Default style tree drawn.")
+            tree = Phylo.read(f"{mmseqs_workdir}/trees/{qseqid}_tree.nwk", "newick")
+            fig = plt.figure(figsize=(12,12))
+            print(Back.GREEN + Fore.BLACK + "Done! You can find the tree drawn in the Plots tab or in a pop-up window")
+            Phylo.draw(tree, do_show=True, show_confidence=True, axes=plt.gca())
+            ax = fig.gca()
+            ax.set_axis_off()
+            print(Back.GREEN + Fore.BLACK + "Done! You can find the tree drawn in the Plots tab or in a pop-up window")
         
-        # defining tree style
-        ts = TreeStyle()
-        ts.show_leaf_name = True
-        ts.mode = "r"
-        ts.arc_start = -180  # 0 degrees = 3 o'clock
-        ts.arc_span = 180
-        
-        print(Back.GREEN + Fore.BLACK + "Done! You can find the interactive tree drawn in a pop-up window")
-        # plot tree
-        t.show(tree_style=ts)
+        # Drawing interactive tree
+        if(tree_type == "interactive"):
+            print(Fore.GREEN + Style.BRIGHT + "Interactive tree drawn.")     
+            # reading the tree
+            t = Tree(f"{mmseqs_workdir}/trees/{qseqid}_tree.nwk")
+            
+            # defining tree style
+            ts = TreeStyle()
+            ts.show_leaf_name = True
+            ts.mode = "r"
+            ts.arc_start = -180  # 0 degrees = 3 o'clock
+            ts.arc_span = 180
+            print(Back.GREEN + Fore.BLACK + "Done! You can find the interactive tree drawn in a pop-up window")
+            # plot tree
+            t.show(tree_style=ts)
+        end_time = time.time()
+        print(Back.GREEN + Fore.BLACK + f"Tree from {query_id} generated in {end_time - start_time:.2f} seconds.")
+
+    else:
+        # Si no se proporciona query_id, construir árboles para todos los alineamientos
+        for filename in os.listdir(alignments_dir):
+            if filename.endswith('_aligned.fasta'):
+                query_id = filename.replace('_aligned.fasta', '')
+                alignment_path = f"{alignments_dir}/{filename}"
+                output_tree = f"{trees_dir}/{query_id}_tree.nwk"
+                subprocess.run(f"FastTree {alignment_path} > {output_tree}", shell=True)
+                print(Fore.GREEN + Style.BRIGHT + f"Tree saved in {output_tree}")
+        end_time = time.time()
+        print(Back.GREEN + Fore.BLACK + f"Trees from {job_name} generated in {end_time - start_time:.2f} seconds.")
 
 
 '''
@@ -629,8 +649,8 @@ def main_function():
     # Subparser for build_tree
     parser_build_tree = subparsers.add_parser('build_tree', help='To build the phylogenetic tree')
     parser_build_tree.add_argument("--job_name", type=str, required=True, help="Name of the 'job' for build_tree")
-    parser_build_tree.add_argument("--query_id", type=str, required=True, help="Name of the query to build its tree")
-    parser_build_tree.add_argument("--tree_type", type=str, default=None, help="Tree type for build_tree. It may be 'simple' (default) or 'interactive'")
+    parser_build_tree.add_argument("--query_id", type=str, default=None, help="Name of the query to build its tree")
+    parser_build_tree.add_argument("--tree_type", type=str, default="simple", help="Tree type for build_tree. It may be 'simple' (default) or 'interactive'")
 
     # subparser for show_results
     parser_show_results = subparsers.add_parser('show_results', help='To show the results with Streamlit')
